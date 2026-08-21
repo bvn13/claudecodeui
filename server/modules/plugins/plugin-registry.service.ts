@@ -92,7 +92,61 @@ export function validateManifest(manifest) {
     }
   }
 
+  const sidebarError = validateSidebar(manifest.sidebar);
+  if (sidebarError) {
+    return { valid: false, error: sidebarError };
+  }
+
   return { valid: true };
+}
+
+export const SIDEBAR_LABEL_MAX_LENGTH = 24;
+export const SIDEBAR_DEFAULT_ORDER = 500;
+
+/** Returns an error message, or null when the optional `sidebar` object is acceptable. */
+function validateSidebar(sidebar) {
+  if (sidebar === undefined || sidebar === null) return null;
+
+  if (typeof sidebar !== 'object' || Array.isArray(sidebar)) {
+    return 'Sidebar must be an object';
+  }
+
+  if (sidebar.label !== undefined) {
+    if (typeof sidebar.label !== 'string' || sidebar.label.trim().length === 0 || sidebar.label.length > SIDEBAR_LABEL_MAX_LENGTH) {
+      return `Sidebar label must be a string of 1-${SIDEBAR_LABEL_MAX_LENGTH} characters`;
+    }
+  }
+
+  if (sidebar.icon !== undefined && typeof sidebar.icon !== 'string') {
+    return 'Sidebar icon must be a string';
+  }
+
+  if (sidebar.order !== undefined && (typeof sidebar.order !== 'number' || !Number.isFinite(sidebar.order))) {
+    return 'Sidebar order must be a finite number';
+  }
+
+  if (sidebar.replacesTab !== undefined && typeof sidebar.replacesTab !== 'boolean') {
+    return 'Sidebar replacesTab must be a boolean';
+  }
+
+  return null;
+}
+
+/**
+ * Normalises the manifest's `sidebar` object for the client.
+ *
+ * Returning a fixed shape matters: the plugin list is a field whitelist, so
+ * arbitrary manifest content never reaches the frontend.
+ */
+export function normalizeSidebar(sidebar, manifest) {
+  if (!sidebar || typeof sidebar !== 'object' || Array.isArray(sidebar)) return null;
+
+  return {
+    label: typeof sidebar.label === 'string' && sidebar.label.trim() ? sidebar.label : manifest.displayName,
+    icon: typeof sidebar.icon === 'string' && sidebar.icon ? sidebar.icon : (manifest.icon || 'Puzzle'),
+    order: typeof sidebar.order === 'number' && Number.isFinite(sidebar.order) ? sidebar.order : SIDEBAR_DEFAULT_ORDER,
+    replacesTab: sidebar.replacesTab === true,
+  };
 }
 
 const BUILD_TIMEOUT_MS = 60_000;
@@ -212,6 +266,7 @@ export function scanPlugins() {
         entry: manifest.entry,
         server: manifest.server || null,
         permissions: manifest.permissions || [],
+        sidebar: normalizeSidebar(manifest.sidebar, manifest),
         enabled: config[manifest.name]?.enabled !== false, // enabled by default
         dirName: entry.name,
         repoUrl,

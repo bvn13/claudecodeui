@@ -3,10 +3,12 @@ import { Activity, Archive, Folder, MessageSquare, RotateCcw, Search, Trash2 } f
 import type { TFunction } from 'i18next';
 
 import { LLMProviderLogo, ScrollArea } from '@/shared/ui';
-import type { ArchivedProjectListItem, ArchivedSessionListItem, ConversationSearchResults, Project, RecentConversationListItem, ReleaseInfo, SearchProgress, SidebarProjectListProps, SidebarSearchMode } from '@/shared/types';
+import type { ArchivedProjectListItem, ArchivedSessionListItem, ConversationSearchResults, Project, RecentConversationListItem, ReleaseInfo, SearchProgress, SidebarProjectListProps, SidebarSearchMode, SidebarTab } from '@/shared/types';
+import type { SidebarPluginChip } from '@/modules/sidebar/utils/sidebarTabs';
 import { formatCompactAge, getAllSessions } from '@/modules/sidebar/utils/sidebarProjectFormatting';
 import SidebarFooter from '@/modules/sidebar/SidebarFooter';
 import SidebarHeader from '@/modules/sidebar/SidebarHeader';
+import SidebarPluginSurface from '@/modules/sidebar/SidebarPluginSurface';
 import SidebarProjectList from '@/modules/sidebar/SidebarProjectList';
 import SidebarRecentConversations from '@/modules/sidebar/SidebarRecentConversations';
 
@@ -101,7 +103,10 @@ type SidebarContentProps = {
   onSearchFilterChange: (value: string) => void;
   onClearSearchFilter: () => void;
   searchMode: SidebarSearchMode;
-  onSearchModeChange: (mode: SidebarSearchMode) => void;
+  /** Active sidebar section; a plugin section replaces the project list. */
+  sidebarTab: SidebarTab;
+  onSidebarTabChange: (tab: SidebarTab) => void;
+  pluginChips: SidebarPluginChip[];
   conversationResults: ConversationSearchResults | null;
   isSearching: boolean;
   searchProgress: SearchProgress | null;
@@ -150,7 +155,9 @@ export default function SidebarContent({
   onSearchFilterChange,
   onClearSearchFilter,
   searchMode,
-  onSearchModeChange,
+  sidebarTab,
+  onSidebarTabChange,
+  pluginChips,
   conversationResults,
   isSearching,
   searchProgress,
@@ -201,14 +208,25 @@ export default function SidebarContent({
         onSearchFilterChange={onSearchFilterChange}
         onClearSearchFilter={onClearSearchFilter}
         searchMode={searchMode}
-        onSearchModeChange={onSearchModeChange}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
         onCreateProject={onCreateProject}
         onCollapseSidebar={onCollapseSidebar}
+        sidebarTab={sidebarTab}
+        onSidebarTabChange={onSidebarTabChange}
+        pluginChips={pluginChips}
         t={t}
       />
 
+      {sidebarTab.kind === 'plugin' ? (
+        <div className="min-h-0 flex-1">
+          <SidebarPluginSurface
+            pluginName={sidebarTab.name}
+            selectedProject={projectListProps.selectedProject}
+            selectedSession={projectListProps.selectedSession}
+          />
+        </div>
+      ) : (
       <ScrollArea className="flex-1 overflow-y-auto overscroll-contain md:px-1.5 md:py-2">
         {showConversationSearch ? (
           isSearching && !conversationResults ? (
@@ -684,6 +702,7 @@ export default function SidebarContent({
           <SidebarProjectList {...projectListProps} />
         )}
       </ScrollArea>
+      )}
 
       {!isRenamingOnMobile && (
         <SidebarFooter

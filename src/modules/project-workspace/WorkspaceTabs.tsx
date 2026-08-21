@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Tooltip, PillBar, Pill } from '@/shared/ui';
 import type { AppTab } from '@/shared/types';
-import { usePlugins,PluginIcon } from '@/modules/plugins';
+import { usePlugins,PluginIcon,pluginsShownAsTabs } from '@/modules/plugins';
 
 type WorkspaceTabsProps = {
   activeTab: AppTab;
@@ -68,7 +68,9 @@ export default function WorkspaceTabs({
     ...(shouldShowTasksTab ? [TASKS_TAB] : []),
   ];
 
-  const pluginTabs: PluginTab[] = plugins
+  // A plugin that took over a sidebar section with `replacesTab` is not shown
+  // here as well — it lives in one place, not two.
+  const pluginTabs: PluginTab[] = pluginsShownAsTabs(plugins)
     .filter((p) => p.enabled)
     .map((p) => ({
       kind: 'plugin',

@@ -88,7 +88,9 @@ function Sidebar({
     isRefreshing,
     searchFilter,
     searchMode,
-    setSearchMode,
+    sidebarTab,
+    setSidebarTab,
+    sidebarPluginChips,
     conversationResults,
     isSearching,
     searchProgress,
@@ -277,10 +279,12 @@ function Sidebar({
             onSearchFilterChange={setSearchFilter}
             onClearSearchFilter={() => setSearchFilter('')}
             searchMode={searchMode}
-            onSearchModeChange={(mode) => {
-              setSearchMode(mode);
-              if (mode === 'projects') clearConversationResults();
+            sidebarTab={sidebarTab}
+            onSidebarTabChange={(tab) => {
+              setSidebarTab(tab);
+              if (tab.kind !== 'builtin' || tab.mode === 'projects') clearConversationResults();
             }}
+            pluginChips={sidebarPluginChips}
             conversationResults={conversationResults}
             isSearching={isSearching}
             searchProgress={searchProgress}
