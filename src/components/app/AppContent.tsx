@@ -349,6 +349,7 @@ function AppContentInner() {
           newSessionTrigger={newSessionTrigger}
           onProjectSelect={handleProjectSelect}
           onProjectsRefresh={() => void refreshProjectsSilently()}
+          onStartNewSession={handleNewSession}
         />
       </div>
 
