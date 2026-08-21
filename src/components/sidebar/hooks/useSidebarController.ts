@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 
 import { api } from '../../../utils/api';
 import { usePaletteOps } from '../../../contexts/PaletteOpsContext';
+import { usePlugins } from '../../../contexts/PluginsContext';
 import type { Project, ProjectSession, LLMProvider } from '../../../types/app';
 import type { SessionActivityMap } from '../../../hooks/useSessionProtection';
 import type {
@@ -12,9 +13,11 @@ import type {
   ProjectSortOrder,
   RecentConversationListItem,
   SidebarSearchMode,
+  SidebarTab,
   SessionDeleteConfirmation,
   SessionWithProvider,
 } from '../types/types';
+import { SIDEBAR_TAB_STORAGE_KEY, parseSidebarTab, pluginSidebarChips, sidebarTabKey } from '../utils/sidebarTabs';
 import {
   clearLegacyStarredProjectIds,
   filterProjects,
@@ -153,6 +156,50 @@ export function useSidebarController({
   const [sessionDeleteConfirmation, setSessionDeleteConfirmation] = useState<SessionDeleteConfirmation | null>(null);
   const [showVersionModal, setShowVersionModal] = useState(false);
   const [searchMode, setSearchMode] = useState<SidebarSearchMode>('projects');
+  // Which section is on screen. Built-in sections keep driving `searchMode`;
+  // a plugin section replaces the list below the header.
+  const [sidebarTab, setSidebarTabState] = useState<SidebarTab>({ kind: 'builtin', mode: 'projects' });
+  const { plugins } = usePlugins();
+  const sidebarPluginChips = useMemo(() => pluginSidebarChips(plugins), [plugins]);
+  const sidebarTabRestoredRef = useRef(false);
+
+  const setSidebarTab = useCallback((tab: SidebarTab) => {
+    setSidebarTabState(tab);
+    if (tab.kind === 'builtin') setSearchMode(tab.mode);
+    try {
+      localStorage.setItem(SIDEBAR_TAB_STORAGE_KEY, sidebarTabKey(tab));
+    } catch {
+      // Storage unavailable — the selection just stops being sticky.
+    }
+  }, []);
+
+  // Restores the persisted section once the plugin list is known, and drops a
+  // plugin section that has since been disabled or uninstalled.
+  useEffect(() => {
+    const pluginNames = sidebarPluginChips.map((chip) => chip.name);
+
+    if (sidebarTab.kind === 'plugin' && !pluginNames.includes(sidebarTab.name)) {
+      setSidebarTabState({ kind: 'builtin', mode: 'projects' });
+      return;
+    }
+
+    if (sidebarTabRestoredRef.current) return;
+
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(SIDEBAR_TAB_STORAGE_KEY);
+    } catch {
+      stored = null;
+    }
+
+    // A stored plugin section waits for the plugin list to arrive.
+    if (stored?.startsWith('plugin:') && pluginNames.length === 0) return;
+
+    sidebarTabRestoredRef.current = true;
+    const restored = parseSidebarTab(stored, pluginNames);
+    setSidebarTabState(restored);
+    if (restored.kind === 'builtin') setSearchMode(restored.mode);
+  }, [sidebarPluginChips, sidebarTab]);
   const [conversationResults, setConversationResults] = useState<ConversationSearchResults | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchProgress, setSearchProgress] = useState<SearchProgress | null>(null);
@@ -1120,6 +1167,9 @@ export function useSidebarController({
     setEditingSessionName,
     searchMode,
     setSearchMode,
+    sidebarTab,
+    setSidebarTab,
+    sidebarPluginChips,
     conversationResults,
     isSearching,
     searchProgress,

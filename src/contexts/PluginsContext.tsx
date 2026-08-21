@@ -14,6 +14,13 @@ export type Plugin = {
   entry: string;
   server: string | null;
   permissions: string[];
+  /** Present when the manifest asked for a sidebar section; normalised by the server. */
+  sidebar: {
+    label: string;
+    icon: string;
+    order: number;
+    replacesTab: boolean;
+  } | null;
   enabled: boolean;
   serverRunning: boolean;
   dirName: string;

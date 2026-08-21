@@ -3,6 +3,14 @@ import type { SessionActivityMap } from '../../../hooks/useSessionProtection';
 
 export type ProjectSortOrder = 'name' | 'date';
 export type SidebarSearchMode = 'projects' | 'conversations' | 'running' | 'archived';
+
+/**
+ * Which section the sidebar is showing: one of the built-in modes, or a section
+ * contributed by a plugin through its manifest.
+ */
+export type SidebarTab =
+  | { kind: 'builtin'; mode: SidebarSearchMode }
+  | { kind: 'plugin'; name: string };
 export type ArchivedProjectListItem = Project & { isArchived: true };
 
 export type SessionWithProvider = ProjectSession & {
