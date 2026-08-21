@@ -64,7 +64,9 @@ export default function SidebarPluginSurface({
     onOpenSession: (sessionId) => navigate(`/session/${sessionId}`),
   });
   const hostApiRef = useRef(hostApi);
-  hostApiRef.current = hostApi;
+  useEffect(() => {
+    hostApiRef.current = hostApi;
+  }, [hostApi]);
 
   const contextRef = useRef<PluginContext>(buildContext(isDarkMode, selectedProject, selectedSession));
   const contextCallbacksRef = useRef<Set<(context: PluginContext) => void>>(new Set());
