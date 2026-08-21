@@ -1,14 +1,19 @@
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { usePlugins } from '../../../../contexts/PluginsContext';
 import { authenticatedFetch } from '../../../../utils/api';
 import type { Project, ProjectSession } from '../../../../types/app';
+import { usePluginHostApi } from '../../../plugins/hooks/usePluginHostApi';
+import { createPluginApi } from '../../../plugins/utils/pluginHostRequest';
 
 type SidebarPluginSurfaceProps = {
   pluginName: string;
   selectedProject: Project | null;
   selectedSession: ProjectSession | null;
+  /** Opens a new chat for a project on the plugin's behalf. */
+  onStartNewSession: (project: Project) => void;
 };
 
 type PluginContext = {
@@ -46,10 +51,20 @@ export default function SidebarPluginSurface({
   pluginName,
   selectedProject,
   selectedSession,
+  onStartNewSession,
 }: SidebarPluginSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { isDarkMode } = useTheme();
   const { plugins } = usePlugins();
+  const navigate = useNavigate();
+  // The sidebar surface offers the same host API as the tab surface; only
+  // `api.surface` differs.
+  const hostApi = usePluginHostApi({
+    onStartNewSession,
+    onOpenSession: (sessionId) => navigate(`/session/${sessionId}`),
+  });
+  const hostApiRef = useRef(hostApi);
+  hostApiRef.current = hostApi;
 
   const contextRef = useRef<PluginContext>(buildContext(isDarkMode, selectedProject, selectedSession));
   const contextCallbacksRef = useRef<Set<(context: PluginContext) => void>>(new Set());
@@ -89,8 +104,8 @@ export default function SidebarPluginSurface({
 
         moduleRef.current = module;
 
-        const api = {
-          get context(): PluginContext { return contextRef.current; },
+        const api = createPluginApi({
+          getContext: () => contextRef.current,
 
           onContextChange(callback: (context: PluginContext) => void): () => void {
             contextCallbacks.add(callback);
@@ -110,8 +125,9 @@ export default function SidebarPluginSurface({
             return rpcResponse.json();
           },
 
-          surface: 'sidebar' as const,
-        };
+          getHost: () => hostApiRef.current,
+          surface: 'sidebar',
+        });
 
         await module.mount?.(container, api);
         if (!active) {

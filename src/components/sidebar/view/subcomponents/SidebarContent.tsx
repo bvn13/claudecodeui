@@ -230,6 +230,7 @@ export default function SidebarContent({
             pluginName={sidebarTab.name}
             selectedProject={projectListProps.selectedProject}
             selectedSession={projectListProps.selectedSession}
+            onStartNewSession={projectListProps.onNewSession}
           />
         </div>
       ) : (
