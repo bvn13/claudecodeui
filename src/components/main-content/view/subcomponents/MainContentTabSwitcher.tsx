@@ -7,6 +7,7 @@ import { Tooltip, PillBar, Pill } from '../../../../shared/view/ui';
 import type { AppTab } from '../../../../types/app';
 import { usePlugins } from '../../../../contexts/PluginsContext';
 import PluginIcon from '../../../plugins/view/PluginIcon';
+import { pluginsShownAsTabs } from '../../../sidebar/utils/sidebarTabs';
 
 type MainContentTabSwitcherProps = {
   activeTab: AppTab;
@@ -68,7 +69,9 @@ export default function MainContentTabSwitcher({
     ...(shouldShowTasksTab ? [TASKS_TAB] : []),
   ];
 
-  const pluginTabs: PluginTab[] = plugins
+  // A plugin that took over a sidebar section with `replacesTab` is not shown
+  // here as well — it lives in one place, not two.
+  const pluginTabs: PluginTab[] = pluginsShownAsTabs(plugins)
     .filter((p) => p.enabled)
     .map((p) => ({
       kind: 'plugin',

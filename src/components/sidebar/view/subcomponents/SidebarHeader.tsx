@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from 'react';
 import { Activity, Archive, Folder, FolderPlus, MessageSquare, Plus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
@@ -5,7 +6,10 @@ import { Button, Input, Tooltip } from '../../../../shared/view/ui';
 import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '../../../../shared/constants';
 import { IS_PLATFORM } from '../../../../shared/utils';
 import { cn } from '../../../../lib/utils';
-import type { SidebarSearchMode } from '../../types/types';
+import type { SidebarSearchMode, SidebarTab } from '../../types/types';
+import type { SidebarPluginChip } from '../../utils/sidebarTabs';
+import { BUILT_IN_SIDEBAR_ORDER, isSameSidebarTab, sidebarTabKey } from '../../utils/sidebarTabs';
+import PluginIcon from '../../../plugins/view/PluginIcon';
 
 import GitHubStarBadge from './GitHubStarBadge';
 
@@ -24,7 +28,10 @@ type SidebarHeaderProps = {
   onSearchFilterChange: (value: string) => void;
   onClearSearchFilter: () => void;
   searchMode: SidebarSearchMode;
-  onSearchModeChange: (mode: SidebarSearchMode) => void;
+  /** The section on screen — a built-in mode or a plugin-contributed one. */
+  sidebarTab: SidebarTab;
+  onSidebarTabChange: (tab: SidebarTab) => void;
+  pluginChips: SidebarPluginChip[];
   onRefresh: () => void;
   isRefreshing: boolean;
   onCreateProject: () => void;
@@ -44,14 +51,21 @@ export default function SidebarHeader({
   onSearchFilterChange,
   onClearSearchFilter,
   searchMode,
-  onSearchModeChange,
+  sidebarTab,
+  onSidebarTabChange,
+  pluginChips,
   onRefresh,
   isRefreshing,
   onCreateProject,
   onCollapseSidebar,
   t,
 }: SidebarHeaderProps) {
-  const showSearchTools = (projectsCount > 0 || runningSessionsCount > 0 || archivedSessionsCount > 0 || isArchivedSessionsLoading) && !isLoading;
+  const hasSidebarContent = projectsCount > 0 || runningSessionsCount > 0 || archivedSessionsCount > 0 || isArchivedSessionsLoading;
+  const isPluginTab = sidebarTab.kind === 'plugin';
+  // Chips stay visible on a plugin section (it is how you get back), but the
+  // search box belongs to the built-in sections only.
+  const showChips = (hasSidebarContent || pluginChips.length > 0) && !isLoading;
+  const showSearchTools = hasSidebarContent && !isLoading && !isPluginTab;
   const searchPlaceholder = searchMode === 'conversations'
     ? t('search.conversationsPlaceholder')
     : searchMode === 'archived'
@@ -60,6 +74,138 @@ export default function SidebarHeader({
         ? t('search.runningPlaceholder', 'Search running sessions...')
         : t('projects.searchPlaceholder');
   const runningBadgeText = runningSessionsCount > 99 ? '99+' : String(runningSessionsCount);
+
+  const chipClassName = (active: boolean, grow: boolean) => cn(
+    'flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all',
+    grow && 'flex-1',
+    active ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+  );
+
+  const isActiveTab = (tab: SidebarTab) => isSameSidebarTab(sidebarTab, tab);
+  const selectBuiltIn = (mode: SidebarSearchMode) => onSidebarTabChange({ kind: 'builtin', mode });
+
+  /**
+   * The section switcher. Built-in chips and plugin chips are one ordered list,
+   * so a plugin declaring `order: 50` renders left of Projects (100).
+   */
+  const ChipRow = ({ showRunningLabel }: { showRunningLabel: boolean }) => {
+    const chips: { key: string; order: number; node: ReactNode }[] = [];
+
+    if (hasSidebarContent) {
+      chips.push({
+        key: 'projects',
+        order: BUILT_IN_SIDEBAR_ORDER.projects,
+        node: (
+          <button
+            onClick={() => selectBuiltIn('projects')}
+            aria-pressed={isActiveTab({ kind: 'builtin', mode: 'projects' })}
+            className={chipClassName(isActiveTab({ kind: 'builtin', mode: 'projects' }), true)}
+          >
+            <Folder className="h-3 w-3" />
+            {t('search.modeProjects')}
+          </button>
+        ),
+      });
+
+      chips.push({
+        key: 'conversations',
+        order: BUILT_IN_SIDEBAR_ORDER.conversations,
+        node: (
+          <button
+            onClick={() => selectBuiltIn('conversations')}
+            aria-pressed={isActiveTab({ kind: 'builtin', mode: 'conversations' })}
+            className={chipClassName(isActiveTab({ kind: 'builtin', mode: 'conversations' }), true)}
+          >
+            <MessageSquare className="h-3 w-3" />
+            {t('search.modeConversations')}
+          </button>
+        ),
+      });
+
+      chips.push({
+        key: 'running',
+        order: BUILT_IN_SIDEBAR_ORDER.running,
+        node: (
+          <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top">
+            <button
+              onClick={() => selectBuiltIn('running')}
+              aria-pressed={isActiveTab({ kind: 'builtin', mode: 'running' })}
+              aria-label={t('search.runningTooltip', 'Running sessions')}
+              title={t('search.runningTooltip', 'Running sessions')}
+              className={cn(
+                chipClassName(isActiveTab({ kind: 'builtin', mode: 'running' }), false),
+                isActiveTab({ kind: 'builtin', mode: 'running' }) && 'ring-1 ring-emerald-500/15',
+              )}
+            >
+              <span className="relative flex h-3 w-3 items-center justify-center">
+                <Activity className={cn('h-3 w-3', runningSessionsCount > 0 && 'text-emerald-500')} />
+                {runningSessionsCount > 0 && (
+                  <span className="absolute -right-2.5 -top-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
+                    {runningBadgeText}
+                  </span>
+                )}
+              </span>
+              {showRunningLabel && <span className="sr-only">{t('search.modeRunning', 'Running')}</span>}
+            </button>
+          </Tooltip>
+        ),
+      });
+
+      chips.push({
+        key: 'archived',
+        order: BUILT_IN_SIDEBAR_ORDER.archived,
+        node: (
+          <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
+            <button
+              onClick={() => selectBuiltIn('archived')}
+              aria-pressed={isActiveTab({ kind: 'builtin', mode: 'archived' })}
+              aria-label={t('search.archiveOnlyTooltip', 'Archive only')}
+              title={t('search.archiveOnlyTooltip', 'Archive only')}
+              className={cn(
+                'flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all',
+                isActiveTab({ kind: 'builtin', mode: 'archived' })
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Archive className="h-3 w-3" />
+            </button>
+          </Tooltip>
+        ),
+      });
+    }
+
+    for (const chip of pluginChips) {
+      const tab: SidebarTab = { kind: 'plugin', name: chip.name };
+      chips.push({
+        key: sidebarTabKey(tab),
+        order: chip.order,
+        node: (
+          <button
+            onClick={() => onSidebarTabChange(tab)}
+            aria-pressed={isActiveTab(tab)}
+            title={chip.label}
+            className={chipClassName(isActiveTab(tab), true)}
+          >
+            <PluginIcon
+              pluginName={chip.name}
+              iconFile={chip.icon}
+              className="flex h-3 w-3 items-center justify-center [&>svg]:h-3 [&>svg]:w-3"
+            />
+            <span className="truncate">{chip.label}</span>
+          </button>
+        ),
+      });
+    }
+
+    chips.sort((a, b) => a.order - b.order);
+
+    return (
+      <div className="flex rounded-lg bg-muted/50 p-0.5">
+        {chips.map((chip) => <Fragment key={chip.key}>{chip.node}</Fragment>)}
+      </div>
+    );
+  };
 
   const LogoBlock = () => (
     <div className="flex min-w-0 items-center gap-2.5">
@@ -135,77 +281,11 @@ export default function SidebarHeader({
 
         <GitHubStarBadge />
 
-        {/* Search bar */}
-        {showSearchTools && (
+        {/* Section switcher and search bar */}
+        {showChips && (
           <div className="mt-2.5 space-y-2">
-            {/* Search mode toggle */}
-            <div className="flex rounded-lg bg-muted/50 p-0.5">
-              <button
-                onClick={() => onSearchModeChange('projects')}
-                aria-pressed={searchMode === 'projects'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'projects'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Folder className="h-3 w-3" />
-                {t('search.modeProjects')}
-              </button>
-              <button
-                onClick={() => onSearchModeChange('conversations')}
-                aria-pressed={searchMode === 'conversations'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'conversations'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <MessageSquare className="h-3 w-3" />
-                {t('search.modeConversations')}
-              </button>
-              <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top">
-                <button
-                  onClick={() => onSearchModeChange('running')}
-                  aria-pressed={searchMode === 'running'}
-                  aria-label={t('search.runningTooltip', 'Running sessions')}
-                  title={t('search.runningTooltip', 'Running sessions')}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                    searchMode === 'running'
-                      ? "bg-background shadow-sm text-foreground ring-1 ring-emerald-500/15"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <span className="relative flex h-3 w-3 items-center justify-center">
-                    <Activity className={cn("h-3 w-3", runningSessionsCount > 0 && "text-emerald-500")} />
-                    {runningSessionsCount > 0 && (
-                      <span className="absolute -right-2.5 -top-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
-                        {runningBadgeText}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              </Tooltip>
-              <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
-                <button
-                  onClick={() => onSearchModeChange('archived')}
-                  aria-pressed={searchMode === 'archived'}
-                  aria-label={t('search.archiveOnlyTooltip', 'Archive only')}
-                  title={t('search.archiveOnlyTooltip', 'Archive only')}
-                  className={cn(
-                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
-                    searchMode === 'archived'
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Archive className="h-3 w-3" />
-                </button>
-              </Tooltip>
-            </div>
+            <ChipRow showRunningLabel={false} />
+            {showSearchTools && (
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
               <Input
@@ -234,6 +314,7 @@ export default function SidebarHeader({
                 </kbd>
               )}
             </div>
+            )}
           </div>
         )}
       </div>
@@ -276,96 +357,31 @@ export default function SidebarHeader({
           </div>
         </div>
 
-        {/* Mobile search */}
-        {showSearchTools && (
+        {/* Mobile section switcher and search */}
+        {showChips && (
           <div className="mt-2.5 space-y-2">
-            <div className="flex rounded-lg bg-muted/50 p-0.5">
-              <button
-                onClick={() => onSearchModeChange('projects')}
-                aria-pressed={searchMode === 'projects'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'projects'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+            <ChipRow showRunningLabel />
+            {showSearchTools && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
+                <Input
+                  type="text"
+                  placeholder={searchPlaceholder}
+                  value={searchFilter}
+                  onChange={(event) => onSearchFilterChange(event.target.value)}
+                  className="nav-search-input h-10 rounded-xl border-0 pl-10 pr-9 text-sm transition-all duration-200 placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                {searchFilter && (
+                  <button
+                    onClick={onClearSearchFilter}
+                    aria-label={t('tooltips.clearSearch')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 hover:bg-accent"
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
                 )}
-              >
-                <Folder className="h-3 w-3" />
-                {t('search.modeProjects')}
-              </button>
-              <button
-                onClick={() => onSearchModeChange('conversations')}
-                aria-pressed={searchMode === 'conversations'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'conversations'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <MessageSquare className="h-3 w-3" />
-                {t('search.modeConversations')}
-              </button>
-              <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top">
-                <button
-                  onClick={() => onSearchModeChange('running')}
-                  aria-pressed={searchMode === 'running'}
-                  aria-label={t('search.runningTooltip', 'Running sessions')}
-                  title={t('search.runningTooltip', 'Running sessions')}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                    searchMode === 'running'
-                      ? "bg-background shadow-sm text-foreground ring-1 ring-emerald-500/15"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <span className="relative flex h-3 w-3 items-center justify-center">
-                    <Activity className={cn("h-3 w-3", runningSessionsCount > 0 && "text-emerald-500")} />
-                    {runningSessionsCount > 0 && (
-                      <span className="absolute -right-2.5 -top-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
-                        {runningBadgeText}
-                      </span>
-                    )}
-                  </span>
-                  <span className="sr-only">{t('search.modeRunning', 'Running')}</span>
-                </button>
-              </Tooltip>
-              <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
-                <button
-                  onClick={() => onSearchModeChange('archived')}
-                  aria-pressed={searchMode === 'archived'}
-                  aria-label={t('search.archiveOnlyTooltip', 'Archive only')}
-                  title={t('search.archiveOnlyTooltip', 'Archive only')}
-                  className={cn(
-                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
-                    searchMode === 'archived'
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Archive className="h-3 w-3" />
-                </button>
-              </Tooltip>
-            </div>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
-              <Input
-                type="text"
-                placeholder={searchPlaceholder}
-                value={searchFilter}
-                onChange={(event) => onSearchFilterChange(event.target.value)}
-                className="nav-search-input h-10 rounded-xl border-0 pl-10 pr-9 text-sm transition-all duration-200 placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-              {searchFilter && (
-                <button
-                  onClick={onClearSearchFilter}
-                  aria-label={t('tooltips.clearSearch')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 hover:bg-accent"
-                >
-                  <X className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>

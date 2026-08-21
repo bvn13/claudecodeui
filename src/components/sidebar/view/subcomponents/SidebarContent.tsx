@@ -6,12 +6,14 @@ import { ScrollArea } from '../../../../shared/view/ui';
 import type { Project } from '../../../../types/app';
 import type { ReleaseInfo } from '../../../../shared/types';
 import type { ConversationSearchResults, SearchProgress } from '../../hooks/useSidebarController';
-import type { ArchivedProjectListItem, ArchivedSessionListItem, RecentConversationListItem, SidebarSearchMode } from '../../types/types';
+import type { ArchivedProjectListItem, ArchivedSessionListItem, RecentConversationListItem, SidebarSearchMode, SidebarTab } from '../../types/types';
+import type { SidebarPluginChip } from '../../utils/sidebarTabs';
 import LLMProviderLogo from '../../../llm-provider-logo/LLMProviderLogo';
 import { formatCompactAge, getAllSessions } from '../../utils/utils';
 
 import SidebarFooter from './SidebarFooter';
 import SidebarHeader from './SidebarHeader';
+import SidebarPluginSurface from './SidebarPluginSurface';
 import SidebarProjectList, { type SidebarProjectListProps } from './SidebarProjectList';
 import SidebarRecentConversations from './SidebarRecentConversations';
 
@@ -106,7 +108,10 @@ type SidebarContentProps = {
   onSearchFilterChange: (value: string) => void;
   onClearSearchFilter: () => void;
   searchMode: SidebarSearchMode;
-  onSearchModeChange: (mode: SidebarSearchMode) => void;
+  /** Active sidebar section; a plugin section replaces the project list. */
+  sidebarTab: SidebarTab;
+  onSidebarTabChange: (tab: SidebarTab) => void;
+  pluginChips: SidebarPluginChip[];
   conversationResults: ConversationSearchResults | null;
   isSearching: boolean;
   searchProgress: SearchProgress | null;
@@ -154,7 +159,9 @@ export default function SidebarContent({
   onSearchFilterChange,
   onClearSearchFilter,
   searchMode,
-  onSearchModeChange,
+  sidebarTab,
+  onSidebarTabChange,
+  pluginChips,
   conversationResults,
   isSearching,
   searchProgress,
@@ -207,14 +214,25 @@ export default function SidebarContent({
         onSearchFilterChange={onSearchFilterChange}
         onClearSearchFilter={onClearSearchFilter}
         searchMode={searchMode}
-        onSearchModeChange={onSearchModeChange}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
         onCreateProject={onCreateProject}
         onCollapseSidebar={onCollapseSidebar}
+        sidebarTab={sidebarTab}
+        onSidebarTabChange={onSidebarTabChange}
+        pluginChips={pluginChips}
         t={t}
       />
 
+      {sidebarTab.kind === 'plugin' ? (
+        <div className="min-h-0 flex-1">
+          <SidebarPluginSurface
+            pluginName={sidebarTab.name}
+            selectedProject={projectListProps.selectedProject}
+            selectedSession={projectListProps.selectedSession}
+          />
+        </div>
+      ) : (
       <ScrollArea className="flex-1 overflow-y-auto overscroll-contain md:px-1.5 md:py-2">
         {showConversationSearch ? (
           isSearching && !conversationResults ? (
@@ -689,6 +707,7 @@ export default function SidebarContent({
           <SidebarProjectList {...projectListProps} />
         )}
       </ScrollArea>
+      )}
 
       {!isRenamingOnMobile && (
         <SidebarFooter
