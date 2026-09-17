@@ -1003,6 +1003,13 @@ export type Plugin = {
   entry: string;
   server: string | null;
   permissions: string[];
+  /** Present when the manifest asked for a sidebar section; normalised by the server. */
+  sidebar: {
+    label: string;
+    icon: string;
+    order: number;
+    replacesTab: boolean;
+  } | null;
   enabled: boolean;
   serverRunning: boolean;
   dirName: string;
@@ -1289,6 +1296,14 @@ export type ProjectSortOrder = 'name' | 'date';
 
 /** Which list the sidebar is currently showing: projects, conversation search results, running sessions or archived items. */
 export type SidebarSearchMode = 'projects' | 'conversations' | 'running' | 'archived';
+
+/**
+ * Which section the sidebar is showing: one of the built-in modes, or a section
+ * contributed by a plugin through its manifest.
+ */
+export type SidebarTab =
+  | { kind: 'builtin'; mode: SidebarSearchMode }
+  | { kind: 'plugin'; name: string };
 
 /** A Project narrowed to the archived state so archived entries can be listed and restored without being mistaken for active projects. */
 export type ArchivedProjectListItem = Project & { isArchived: true };

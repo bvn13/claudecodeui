@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { usePlugins } from '@/modules/plugins/context/PluginsContext';
+import { describePluginSurfaces } from '@/modules/plugins/utils/pluginSurfaces';
 import type { Plugin } from '@/shared/types';
 import PluginIcon from '@/modules/plugins/PluginIcon';
 
@@ -264,7 +265,7 @@ function PluginCard({
                   v{plugin.version}
                 </span>
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  {plugin.slot}
+                  {describePluginSurfaces(plugin)}
                 </span>
                 <ServerDot running={!!plugin.serverRunning} t={t} />
               </div>

@@ -4,9 +4,10 @@ import type { TFunction } from 'i18next';
 import { Button, Input } from '@/shared/ui';
 import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '@/shared/constants';
 import { IS_PLATFORM } from '@/shared/utils';
-import type { SidebarSearchMode } from '@/shared/types';
+import type { SidebarSearchMode, SidebarTab } from '@/shared/types';
+import type { SidebarPluginChip } from '@/modules/sidebar/utils/sidebarTabs';
 import GitHubStarBadge from '@/modules/sidebar/GitHubStarBadge';
-import SidebarModeTabs from '@/modules/sidebar/SidebarModeTabs';
+import SidebarChipRow from '@/modules/sidebar/SidebarChipRow';
 
 const MOD_KEY =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
@@ -23,7 +24,10 @@ type SidebarHeaderProps = {
   onSearchFilterChange: (value: string) => void;
   onClearSearchFilter: () => void;
   searchMode: SidebarSearchMode;
-  onSearchModeChange: (mode: SidebarSearchMode) => void;
+  /** The section on screen — a built-in mode or a plugin-contributed one. */
+  sidebarTab: SidebarTab;
+  onSidebarTabChange: (tab: SidebarTab) => void;
+  pluginChips: SidebarPluginChip[];
   onRefresh: () => void;
   isRefreshing: boolean;
   onCreateProject: () => void;
@@ -63,14 +67,21 @@ export default function SidebarHeader({
   onSearchFilterChange,
   onClearSearchFilter,
   searchMode,
-  onSearchModeChange,
+  sidebarTab,
+  onSidebarTabChange,
+  pluginChips,
   onRefresh,
   isRefreshing,
   onCreateProject,
   onCollapseSidebar,
   t,
 }: SidebarHeaderProps) {
-  const showSearchTools = (projectsCount > 0 || runningSessionsCount > 0 || archivedSessionsCount > 0 || isArchivedSessionsLoading) && !isLoading;
+  const hasSidebarContent = projectsCount > 0 || runningSessionsCount > 0 || archivedSessionsCount > 0 || isArchivedSessionsLoading;
+  const isPluginTab = sidebarTab.kind === 'plugin';
+  // Chips stay visible on a plugin section (it is how you get back), but the
+  // search box belongs to the built-in sections only.
+  const showChips = (hasSidebarContent || pluginChips.length > 0) && !isLoading;
+  const showSearchTools = hasSidebarContent && !isLoading && !isPluginTab;
   const searchPlaceholder = searchMode === 'conversations'
     ? t('search.conversationsPlaceholder')
     : searchMode === 'archived'
@@ -78,6 +89,7 @@ export default function SidebarHeader({
       : searchMode === 'running'
         ? t('search.runningPlaceholder', 'Search running sessions...')
         : t('projects.searchPlaceholder');
+
 
   return (
     <div className="flex-shrink-0">
@@ -137,16 +149,19 @@ export default function SidebarHeader({
 
         <GitHubStarBadge />
 
-        {/* Search bar */}
-        {showSearchTools && (
+        {/* Section switcher and search bar */}
+        {showChips && (
           <div className="mt-2.5 space-y-2">
-            {/* Search mode toggle */}
-            <SidebarModeTabs
-              searchMode={searchMode}
-              onSearchModeChange={onSearchModeChange}
+            {/* Section switcher: built-in and plugin chips, folded when the row runs out of width */}
+            <SidebarChipRow
+              hasSidebarContent={hasSidebarContent}
+              sidebarTab={sidebarTab}
+              onSidebarTabChange={onSidebarTabChange}
+              pluginChips={pluginChips}
               runningSessionsCount={runningSessionsCount}
               t={t}
             />
+            {showSearchTools && (
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
               <Input
@@ -175,6 +190,7 @@ export default function SidebarHeader({
                 </kbd>
               )}
             </div>
+            )}
           </div>
         )}
       </div>
@@ -217,34 +233,38 @@ export default function SidebarHeader({
           </div>
         </div>
 
-        {/* Mobile search */}
-        {showSearchTools && (
+        {/* Mobile section switcher and search */}
+        {showChips && (
           <div className="mt-2.5 space-y-2">
-            <SidebarModeTabs
-              searchMode={searchMode}
-              onSearchModeChange={onSearchModeChange}
+            <SidebarChipRow
+              hasSidebarContent={hasSidebarContent}
+              sidebarTab={sidebarTab}
+              onSidebarTabChange={onSidebarTabChange}
+              pluginChips={pluginChips}
               runningSessionsCount={runningSessionsCount}
               t={t}
             />
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
-              <Input
-                type="text"
-                placeholder={searchPlaceholder}
-                value={searchFilter}
-                onChange={(event) => onSearchFilterChange(event.target.value)}
-                className="nav-search-input h-10 rounded-xl border-0 pl-10 pr-9 text-sm transition-all duration-200 placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-              {searchFilter && (
-                <button
-                  onClick={onClearSearchFilter}
-                  aria-label={t('tooltips.clearSearch')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 hover:bg-accent"
-                >
-                  <X className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              )}
-            </div>
+            {showSearchTools && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
+                <Input
+                  type="text"
+                  placeholder={searchPlaceholder}
+                  value={searchFilter}
+                  onChange={(event) => onSearchFilterChange(event.target.value)}
+                  className="nav-search-input h-10 rounded-xl border-0 pl-10 pr-9 text-sm transition-all duration-200 placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                {searchFilter && (
+                  <button
+                    onClick={onClearSearchFilter}
+                    aria-label={t('tooltips.clearSearch')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 hover:bg-accent"
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
