@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 
 import { api } from '@/shared/api';
+import { useAuth } from '@/modules/auth';
 import {
   readUserPreference,
   subscribeToUserPreferences,
@@ -62,6 +63,10 @@ export const TasksSettingsProvider = ({ children }: { children: ReactNode }) => 
   const [isTaskMasterReady, setIsTaskMasterReady] = useState<boolean | null>(null);
   const [installationStatus, setInstallationStatus] = useState<TaskMasterInstallationStatus | null>(null);
   const [isCheckingInstallation, setIsCheckingInstallation] = useState(true);
+  // The username rather than the user object: a token refresh hands back a
+  // fresh object for the same person, which would re-run the check for nothing.
+  const { user } = useAuth();
+  const username = user?.username ?? null;
 
   // Only a deliberate toggle is persisted. Persisting from an effect keyed on
   // the state would also fire on mount, writing the default before the user
@@ -80,7 +85,11 @@ export const TasksSettingsProvider = ({ children }: { children: ReactNode }) => 
     setTasksEnabled(readUserPreference('tasksEnabled', TASKS_ENABLED_DEFAULT));
   }), []);
 
-  // Check TaskMaster installation status asynchronously on component mount
+  // Check TaskMaster installation status asynchronously on component mount, and
+  // again once the user is there. This provider is mounted above ProtectedRoute,
+  // so on a browser with no stored token the first check runs on the login
+  // screen and comes back 401 — which reads as "not installed" and hides the
+  // Tasks tab for the rest of the session.
   useEffect(() => {
     const checkInstallation = async () => {
       try {
@@ -114,7 +123,7 @@ export const TasksSettingsProvider = ({ children }: { children: ReactNode }) => 
 
     // Run check asynchronously without blocking initial render
     setTimeout(checkInstallation, 0);
-  }, []);
+  }, [username]);
 
   const toggleTasksEnabled = useCallback(() => {
     chooseTasksEnabled(prev => !prev);
