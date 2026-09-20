@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 
 import { api } from '@/shared/api';
+import { useAuth } from '@/modules/auth';
 import type { Plugin } from '@/shared/types';
 
 
@@ -31,6 +32,11 @@ export function PluginsProvider({ children }: { children: ReactNode }) {
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [loading, setLoading] = useState(true);
   const [pluginsError, setPluginsError] = useState<string | null>(null);
+  // This provider sits above ProtectedRoute, so it is mounted on the login
+  // screen too. The username, not the user object: a token refresh hands back
+  // a fresh object for the same person, which would refetch for nothing.
+  const { user } = useAuth();
+  const username = user?.username ?? null;
 
   const refreshPlugins = useCallback(async () => {
     try {
@@ -58,9 +64,13 @@ export function PluginsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Refetching when the user arrives is what makes the first visit work: before
+  // the login the list request comes back 401, and without this the session
+  // keeps an empty list until a reload — every plugin surface (sidebar chip,
+  // workspace tab, settings row) silently missing.
   useEffect(() => {
     void refreshPlugins();
-  }, [refreshPlugins]);
+  }, [refreshPlugins, username]);
 
   const installPlugin = useCallback(async (url: string) => {
     try {
