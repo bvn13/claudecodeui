@@ -1,15 +1,13 @@
-import { Fragment, type ReactNode } from 'react';
-import { Activity, Archive, Folder, FolderPlus, MessageSquare, Plus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
+import { FolderPlus, Plus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
-import { Button, Input, Tooltip } from '@/shared/ui';
+import { Button, Input } from '@/shared/ui';
 import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '@/shared/constants';
-import { IS_PLATFORM,cn } from '@/shared/utils';
+import { IS_PLATFORM } from '@/shared/utils';
 import type { SidebarSearchMode, SidebarTab } from '@/shared/types';
 import type { SidebarPluginChip } from '@/modules/sidebar/utils/sidebarTabs';
-import { BUILT_IN_SIDEBAR_ORDER, isSameSidebarTab, sidebarTabKey } from '@/modules/sidebar/utils/sidebarTabs';
-import { PluginIcon } from '@/modules/plugins';
 import GitHubStarBadge from '@/modules/sidebar/GitHubStarBadge';
+import SidebarModeTabs from '@/modules/sidebar/SidebarModeTabs';
 
 const MOD_KEY =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
@@ -91,143 +89,7 @@ export default function SidebarHeader({
       : searchMode === 'running'
         ? t('search.runningPlaceholder', 'Search running sessions...')
         : t('projects.searchPlaceholder');
-  const runningBadgeText = runningSessionsCount > 99 ? '99+' : String(runningSessionsCount);
 
-  const chipClassName = (active: boolean, grow: boolean) => cn(
-    'flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all',
-    grow && 'flex-1',
-    active ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
-  );
-
-  const isActiveTab = (tab: SidebarTab) => isSameSidebarTab(sidebarTab, tab);
-  const selectBuiltIn = (mode: SidebarSearchMode) => onSidebarTabChange({ kind: 'builtin', mode });
-
-  /**
-   * The section switcher. Built-in chips and plugin chips are one ordered list,
-   * so a plugin declaring `order: 50` renders left of Projects (100).
-   *
-   * A render function rather than a nested component, for the same reason
-   * LogoBlock sits at module level: a component declared during render is a new
-   * type on every render and remounts its whole subtree.
-   */
-  const renderChipRow = (showRunningLabel: boolean) => {
-    const chips: { key: string; order: number; node: ReactNode }[] = [];
-
-    if (hasSidebarContent) {
-      chips.push({
-        key: 'projects',
-        order: BUILT_IN_SIDEBAR_ORDER.projects,
-        node: (
-          <button
-            onClick={() => selectBuiltIn('projects')}
-            aria-pressed={isActiveTab({ kind: 'builtin', mode: 'projects' })}
-            className={chipClassName(isActiveTab({ kind: 'builtin', mode: 'projects' }), true)}
-          >
-            <Folder className="h-3 w-3" />
-            {t('search.modeProjects')}
-          </button>
-        ),
-      });
-
-      chips.push({
-        key: 'conversations',
-        order: BUILT_IN_SIDEBAR_ORDER.conversations,
-        node: (
-          <button
-            onClick={() => selectBuiltIn('conversations')}
-            aria-pressed={isActiveTab({ kind: 'builtin', mode: 'conversations' })}
-            className={chipClassName(isActiveTab({ kind: 'builtin', mode: 'conversations' }), true)}
-          >
-            <MessageSquare className="h-3 w-3" />
-            {t('search.modeConversations')}
-          </button>
-        ),
-      });
-
-      chips.push({
-        key: 'running',
-        order: BUILT_IN_SIDEBAR_ORDER.running,
-        node: (
-          <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top">
-            <button
-              onClick={() => selectBuiltIn('running')}
-              aria-pressed={isActiveTab({ kind: 'builtin', mode: 'running' })}
-              aria-label={t('search.runningTooltip', 'Running sessions')}
-              title={t('search.runningTooltip', 'Running sessions')}
-              className={cn(
-                chipClassName(isActiveTab({ kind: 'builtin', mode: 'running' }), false),
-                isActiveTab({ kind: 'builtin', mode: 'running' }) && 'ring-1 ring-emerald-500/15',
-              )}
-            >
-              <span className="relative flex h-3 w-3 items-center justify-center">
-                <Activity className={cn('h-3 w-3', runningSessionsCount > 0 && 'text-emerald-500')} />
-                {runningSessionsCount > 0 && (
-                  <span className="absolute -right-2.5 -top-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
-                    {runningBadgeText}
-                  </span>
-                )}
-              </span>
-              {showRunningLabel && <span className="sr-only">{t('search.modeRunning', 'Running')}</span>}
-            </button>
-          </Tooltip>
-        ),
-      });
-
-      chips.push({
-        key: 'archived',
-        order: BUILT_IN_SIDEBAR_ORDER.archived,
-        node: (
-          <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
-            <button
-              onClick={() => selectBuiltIn('archived')}
-              aria-pressed={isActiveTab({ kind: 'builtin', mode: 'archived' })}
-              aria-label={t('search.archiveOnlyTooltip', 'Archive only')}
-              title={t('search.archiveOnlyTooltip', 'Archive only')}
-              className={cn(
-                'flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all',
-                isActiveTab({ kind: 'builtin', mode: 'archived' })
-                  ? 'bg-background shadow-sm text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <Archive className="h-3 w-3" />
-            </button>
-          </Tooltip>
-        ),
-      });
-    }
-
-    for (const chip of pluginChips) {
-      const tab: SidebarTab = { kind: 'plugin', name: chip.name };
-      chips.push({
-        key: sidebarTabKey(tab),
-        order: chip.order,
-        node: (
-          <button
-            onClick={() => onSidebarTabChange(tab)}
-            aria-pressed={isActiveTab(tab)}
-            title={chip.label}
-            className={chipClassName(isActiveTab(tab), true)}
-          >
-            <PluginIcon
-              pluginName={chip.name}
-              iconFile={chip.icon}
-              className="flex h-3 w-3 items-center justify-center [&>svg]:h-3 [&>svg]:w-3"
-            />
-            <span className="truncate">{chip.label}</span>
-          </button>
-        ),
-      });
-    }
-
-    chips.sort((a, b) => a.order - b.order);
-
-    return (
-      <div className="flex rounded-lg bg-muted/50 p-0.5">
-        {chips.map((chip) => <Fragment key={chip.key}>{chip.node}</Fragment>)}
-      </div>
-    );
-  };
 
   return (
     <div className="flex-shrink-0">
@@ -290,7 +152,15 @@ export default function SidebarHeader({
         {/* Section switcher and search bar */}
         {showChips && (
           <div className="mt-2.5 space-y-2">
-            {renderChipRow(false)}
+            {/* Section switcher: built-in and plugin chips, folded when the row runs out of width */}
+            <SidebarModeTabs
+              hasSidebarContent={hasSidebarContent}
+              sidebarTab={sidebarTab}
+              onSidebarTabChange={onSidebarTabChange}
+              pluginChips={pluginChips}
+              runningSessionsCount={runningSessionsCount}
+              t={t}
+            />
             {showSearchTools && (
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
@@ -366,7 +236,14 @@ export default function SidebarHeader({
         {/* Mobile section switcher and search */}
         {showChips && (
           <div className="mt-2.5 space-y-2">
-            {renderChipRow(true)}
+            <SidebarModeTabs
+              hasSidebarContent={hasSidebarContent}
+              sidebarTab={sidebarTab}
+              onSidebarTabChange={onSidebarTabChange}
+              pluginChips={pluginChips}
+              runningSessionsCount={runningSessionsCount}
+              t={t}
+            />
             {showSearchTools && (
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />

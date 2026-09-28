@@ -12,7 +12,8 @@ export type ActionMenuItem = {
   key: string;
   label: string;
   description?: string;
-  icon?: LucideIcon;
+  /** A lucide icon, or any component that takes a className — plugin icons are not lucide ones. */
+  icon?: React.ComponentType<{ className?: string }>;
   onSelect: () => void;
   disabled?: boolean;
   loading?: boolean;
