@@ -170,6 +170,46 @@ test('an auth error on the response ends the session', async () => {
   assert.equal(localStorage.getItem('auth-token'), null);
 });
 
+// Whatever the request left with, the response arrives later. The login
+// screen's providers fire tokenless requests; over a slow link their 401s land
+// after the user has signed in, and used to wipe the token that login stored.
+const answerAfter = (headers: Record<string, string>) => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  vi.stubGlobal('fetch', vi.fn(async () => {
+    await gate;
+    return new Response('{}', { status: 401, headers });
+  }));
+  return release;
+};
+
+test('a late auth error for a tokenless request leaves a fresh login alone', async () => {
+  const release = answerAfter({ 'X-Auth-Error': 'invalid-token' });
+  const pending = (await loadFetch(false))('/api/plugins');
+
+  const fresh = liveToken();
+  localStorage.setItem('auth-token', fresh);
+  release();
+  await pending;
+
+  assert.equal(localStorage.getItem('auth-token'), fresh);
+});
+
+test('a late auth error for a replaced token leaves the new one alone', async () => {
+  localStorage.setItem('auth-token', liveToken());
+  const release = answerAfter({ 'X-Auth-Error': 'invalid-token' });
+  const pending = (await loadFetch(false))('/api/projects');
+
+  const fresh = liveToken().replace('signature', 'fresh');
+  localStorage.setItem('auth-token', fresh);
+  release();
+  await pending;
+
+  assert.equal(localStorage.getItem('auth-token'), fresh);
+});
+
 test('an ordinary response leaves the stored token alone', async () => {
   const token = liveToken();
   localStorage.setItem('auth-token', token);

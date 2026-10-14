@@ -78,6 +78,18 @@ export const expireAuthSession = (): void => {
   }
 };
 
+// An auth error only speaks for the token its request carried. A request sent
+// without one — or with a token that has since been replaced — may answer
+// after a fresh login, and must not wipe the session that login just stored.
+// Over a slow link (a VPN, the Vite dev server's hundreds of modules queued on
+// six HTTP/1.1 connections) the login screen's own tokenless requests do just
+// that, and the user lands back on the login screen.
+export const expireAuthSessionFor = (sentToken: string | null): void => {
+  if (sentToken && localStorage.getItem('auth-token') === sentToken) {
+    expireAuthSession();
+  }
+};
+
 export const getStoredAuthToken = (): string | null => {
   const token = localStorage.getItem('auth-token');
   if (token && isAuthTokenExpired(token)) {
