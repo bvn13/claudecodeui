@@ -1,5 +1,5 @@
 import {
-  expireAuthSession,
+  expireAuthSessionFor,
   getStoredAuthToken,
   storeAuthToken,
 } from '@/shared/authToken';
@@ -17,7 +17,7 @@ export const authenticatedFetch = (
   url: string,
   options: ApiRequestOptions = {},
 ): Promise<Response> => {
-  const token = getStoredAuthToken();
+  const token = IS_PLATFORM ? null : getStoredAuthToken();
 
   const defaultHeaders: Record<string, string> = {};
 
@@ -26,7 +26,7 @@ export const authenticatedFetch = (
     defaultHeaders['Content-Type'] = 'application/json';
   }
 
-  if (!IS_PLATFORM && token) {
+  if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
 
@@ -42,7 +42,7 @@ export const authenticatedFetch = (
       storeAuthToken(refreshedToken);
     }
     if (response.headers.get('X-Auth-Error')) {
-      expireAuthSession();
+      expireAuthSessionFor(token);
     }
     return response;
   });
